@@ -10,18 +10,21 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 from MotionBlurDataset import MotionBlurDataset
+from model import HDRPointwiseNN
 from metrics import psnr
 
 import numpy as np
 import argparse
 import os
+import pickle
 
 class Trainer():
     def __init__(self, dataset, model, optimizer, criterion, output_name, batch_size):
         self.dataset = dataset
-        self.train_loader, self.val_loader = self.split_data(batch_size)
+        #self.train_loader, self.val_loader = self.split_data(batch_size)
+        self.train_loader = torch.utils.data.DataLoader(self.dataset, batch_size=batch_size, shuffle=True, drop_last=False)
 
-        self.output_name = output_dir
+        self.output_name = output_name
     
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
@@ -79,7 +82,7 @@ class Trainer():
                 if (batch_idx + 1) % 10 == 0:
                     model_psnr = psnr(target, preds).item()
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\t PSNR: {:.6f}\n'.format(epoch, 
-                                                                                batch_idx * len(data), 
+                                                                                batch_idx * len(lr), 
                                                                                 len(self.train_loader.dataset), 
                                                                                 100. * batch_idx / len(self.train_loader),
                                                                                 loss.item(),
@@ -92,19 +95,24 @@ class Trainer():
             #val_losses.append(val_loss)
         np.save('{}/train_losses.npy'.format(self.output_name), train_losses)
         np.save('{}/train_psnr.npy'.format(self.output_name), train_psnr)
-        #np.save('results/{}/val_losses.npy'.format(self.output_name), val_losses)
-        self.plot_history(num_epochs, train_losses, train_psnr)
 
+        plot_epoch(num_epochs, train_losses, xlabel='Epochs', legend=['Training Loss'], save_name="{}/history.png".format(self.output_name))
+        plot_epoch(num_epochs, train_psnr, xlabel='Epochs', legend=['Train PSNR'], save_name="{}/psnr.png".format(self.output_name))
 
-    def plot_history(self, epochs, train_losses, val_losses):
-        train_epochs = np.linspace(0, epochs, len(train_losses))
-        val_epochs = np.linspace(0, epochs, len(val_losses))
-        plt.clf()
-        plt.plot(train_epochs, train_losses)
-        plt.plot(val_epochs, val_losses)
-        plt.xlabel("Epochs")
-        plt.legend(["Training Loss", "Train PSNR"])
-        plt.savefig('{}/history.png'.format(self.output_name))
+def plot_epoch(num_epochs, *arrs, xlabel=None, ylabel=None, legend=None, save_name=None):
+    plt.clf()
+    for arr in arrs:
+        axis_vals = np.linspace(0, num_epochs, len(arr))
+        plt.plot(axis_vals, arr)
+
+    if xlabel is not None:
+        plt.xlabel(xlabel)
+    if ylabel is not None:
+        plt.ylabel(ylabel)
+    if legend is not None:
+        plt.legend(legend)
+    if save_name is not None:
+        plt.savefig(save_name)
 
 parser = argparse.ArgumentParser(description='HDRNet Training')
 
@@ -112,6 +120,8 @@ parser.add_argument('--luma-bins', type=int, default=8)
 parser.add_argument('--channel-multiplier', default=1, type=int)
 parser.add_argument('--spatial-bin', type=int, default=16)
 parser.add_argument('--batch-norm', action='store_true', help='If set use batch norm')
+parser.add_argument('--net-input-size', type=int, default=256, help='Size of low-res input')
+parser.add_argument('--net-output-size', type=int, default=320, help='Size of full-res input/output')
 
 parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate')
 parser.add_argument('--batch-size', type=int, default=4)
@@ -125,6 +135,8 @@ print('PARAMS:')
 print(params)
 
 os.makedirs(params['output_dir'], exist_ok=True)
+with open('{}/params.pkl'.format(params['output_dir']), 'wb') as f:
+    pickle.dump(params, f)
 
 dataset = MotionBlurDataset(params['dataset'])
 model = HDRPointwiseNN(params=params)

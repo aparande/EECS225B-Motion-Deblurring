@@ -86,56 +86,51 @@ class Coeffs(nn.Module):
 
     def __init__(self, nin=3, nout=4, params=None):
         super(Coeffs, self).__init__()
-        self.params = params
         self.nin = nin 
         self.nout = nout
         
-        lb = params['luma_bins']
-        cm = params['channel_multiplier']
-        sb = params['spatial_bin']
-        bn = params['batch_norm']
-        nsize = params['net_input_size']
+        self.lb = params['luma_bins']
+        self.cm = params['channel_multiplier']
+        self.sb = params['spatial_bin']
+        self.bn = params['batch_norm']
+        self.nsize = params['net_input_size']
 
         self.relu = nn.ReLU()
 
         # splat features
-        n_layers_splat = int(np.log2(nsize/sb))
+        n_layers_splat = int(np.log2(self.nsize/self.sb))
         self.splat_features = nn.ModuleList()
         prev_ch = nin
         for i in range(n_layers_splat):
-            use_bn = bn if i > 0 else False
-            self.splat_features.append(ConvBlock(prev_ch, cm*(2**i)*lb, 3, stride=2, batch_norm=use_bn))
-            prev_ch = splat_ch = cm*(2**i)*lb
+            use_bn = self.bn if i > 0 else False
+            self.splat_features.append(ConvBlock(prev_ch, self.cm*(2**i)*self.lb, 3, stride=2, batch_norm=use_bn))
+            prev_ch = splat_ch = self.cm*(2**i)*self.lb
 
         # global features
-        n_layers_global = int(np.log2(sb/4))
+        n_layers_global = int(np.log2(self.sb/4))
         self.global_features_conv = nn.ModuleList()
         self.global_features_fc = nn.ModuleList()
         for i in range(n_layers_global):
-            self.global_features_conv.append(ConvBlock(prev_ch, cm*8*lb, 3, stride=2, batch_norm=bn))
-            prev_ch = cm*8*lb
+            self.global_features_conv.append(ConvBlock(prev_ch, self.cm*8*self.lb, 3, stride=2, batch_norm=self.bn))
+            prev_ch = self.cm*8*self.lb
 
         n_total = n_layers_splat + n_layers_global
-        prev_ch = prev_ch * (nsize/2**n_total)**2
-        self.global_features_fc.append(FC(prev_ch, 32*cm*lb, batch_norm=bn))
-        self.global_features_fc.append(FC(32*cm*lb, 16*cm*lb, batch_norm=bn))
-        self.global_features_fc.append(FC(16*cm*lb, 8*cm*lb, activation=None, batch_norm=bn))
+        prev_ch = prev_ch * (self.nsize/2**n_total)**2
+        self.global_features_fc.append(FC(prev_ch, 32*self.cm*self.lb, batch_norm=self.bn))
+        self.global_features_fc.append(FC(32*self.cm*self.lb, 16*self.cm*self.lb, batch_norm=self.bn))
+        self.global_features_fc.append(FC(16*self.cm*self.lb, 8*self.cm*self.lb, activation=None, batch_norm=self.bn))
 
         # local features
         self.local_features = nn.ModuleList()
-        self.local_features.append(ConvBlock(splat_ch, 8*cm*lb, 3, batch_norm=bn))
-        self.local_features.append(ConvBlock(8*cm*lb, 8*cm*lb, 3, activation=None, use_bias=False))
+        self.local_features.append(ConvBlock(splat_ch, 8*self.cm*self.lb, 3, batch_norm=self.bn))
+        self.local_features.append(ConvBlock(8*self.cm*self.lb, 8*self.cm*self.lb, 3, activation=None, use_bias=False))
         
         # predicton
-        self.conv_out = ConvBlock(8*cm*lb, lb*nout*nin, 1, padding=0, activation=None)
+        self.conv_out = ConvBlock(8*self.cm*self.lb, self.lb*nout*nin, 1, padding=0, activation=None)
 
    
     def forward(self, lowres_input):
-        params = self.params
         bs = lowres_input.shape[0]
-        lb = params['luma_bins']
-        cm = params['channel_multiplier']
-        sb = params['spatial_bin']
 
         x = lowres_input
         for layer in self.splat_features:
@@ -155,12 +150,12 @@ class Coeffs(nn.Module):
         local_features = x
 
         fusion_grid = local_features
-        fusion_global = global_features.view(bs,8*cm*lb,1,1)
+        fusion_global = global_features.view(bs,8*self.cm*self.lb,1,1)
         fusion = self.relu( fusion_grid + fusion_global )
 
         x = self.conv_out(fusion)
         s = x.shape
-        x = x.view(bs,self.nin*self.nout,lb,sb,sb) # B x Coefs x Luma x Spatial x Spatial
+        x = x.view(bs,self.nin*self.nout,self.lb,self.sb,self.sb) # B x Coefs x Luma x Spatial x Spatial
         return x
 
 

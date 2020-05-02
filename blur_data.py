@@ -1,30 +1,38 @@
 from motionflow import *
-from os import listdir
+import os
 import matplotlib.pyplot as plt
+from tqdm import tqdm
+import argparse
 
-# Specify relevant file paths
-verbose = True
-base_path = "./BSDS300/images/train/" # directory with the images to blur
-out_path = "./blurimages/train/" # directory to save blurred results to
-img_paths = listdir(base_path)
-total = len(img_paths)
+parser = argparse.ArgumentParser(description='Training Data Generation')
+parser.add_argument("--data-dir", type=str, required=True, dest="output_dir")
+parser.add_argument("-n", type=int, dest="n", required=True, help='How many blurred copies to produce per unblurred image')
 
-for i, rel_path in enumerate(img_paths):
-    if verbose:
-        print("{0} of {1} done".format(i, total))
-    
-    # Blur
-    img = plt.imread(base_path + rel_path)
-    img_mild_blur = blur_image(img, sample_motion_flow(img, params=PARAMS_MILD_BLUR))
-    img_heavy_blur = blur_image(img, sample_motion_flow(img, params=PARAMS_HEAVY_BLUR))
-    
-    # Renormalize
-    img_mild_blur = 255 * (img_mild_blur - img_mild_blur.min()) / (img_mild_blur.max() - img_mild_blur.min())
-    img_heavy_blur = 255 * (img_heavy_blur - img_heavy_blur.min()) / (img_heavy_blur.max() - img_heavy_blur.min())
-    
-    # Save
-    plt.imsave(out_path + rel_path[:-4] + "_mild_blur.jpg", img_mild_blur.astype("uint8"))
-    plt.imsave(out_path + rel_path[:-4] + "_heavy_blur.jpg", img_heavy_blur.astype("uint8"))
+args = parser.parse_args()
 
-if verbose:
-    print("{} of {} done".format(total, total))
+all_img_path = os.path.join(args.output_dir, "Images")
+with open(os.path.join(args.output_dir, "ids.txt"), 'r') as id_file:
+    ids = [img_id.replace("\n", "") for img_id in id_file.readlines()]
+
+for img_id in tqdm(ids):
+    img_dir = os.path.join(all_img_path, img_id)
+    os.makedirs(img_dir, exist_ok=True)
+    base_image_path = os.path.join(img_dir, img_id + ".jpg")
+    
+    tag_offset = 0
+    if os.path.exists(base_image_path):
+        tag_offset = len([name for name in os.listdir(img_dir) if os.path.isfile(name)]) - 1
+    elif os.path.exists(os.path.join(all_img_path, img_id + ".jpg")):
+        os.rename(os.path.join(all_img_path, img_id + ".jpg"), base_image_path)
+    else:
+        print("Error: Could not find unblurred image for {}".format(img_id))
+        continue
+
+    tag_offset += 1
+    img = plt.imread(base_image_path)
+    for i in range(args.n):
+        img_mild_blur = blur_image(img, sample_motion_flow(img, params=PARAMS_MILD_BLUR))
+        img_mild_blur = 255 * (img_mild_blur - img_mild_blur.min()) / (img_mild_blur.max() - img_mild_blur.min())
+
+        blurred_path = os.path.join(img_dir, "{}_{}.jpg".format(img_id, i + tag_offset))
+        plt.imsave(blurred_path, img_mild_blur.astype('uint8'))
