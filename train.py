@@ -116,8 +116,8 @@ def plot_epoch(num_epochs, *arrs, xlabel=None, ylabel=None, legend=None, save_na
 
 parser = argparse.ArgumentParser(description='HDRNet Training')
 
-parser.add_argument('--luma-bins', type=int, default=8)
-parser.add_argument('--channel-multiplier', default=1, type=int)
+parser.add_argument('--luma-bins', type=int, default=8, help='Starting number of splat channels')
+parser.add_argument('--channel-multiplier', default=1, type=int, help='Multiplies how many splat channels are desired')
 parser.add_argument('--spatial-bin', type=int, default=16)
 parser.add_argument('--batch-norm', action='store_true', help='If set use batch norm')
 parser.add_argument('--net-input-size', type=int, default=256, help='Size of low-res input')
@@ -140,7 +140,7 @@ with open('{}/params.pkl'.format(params['output_dir']), 'wb') as f:
 
 dataset = MotionBlurDataset(params['dataset'])
 model = HDRPointwiseNN(params=params)
-optimizer = optim.Adam(model.parameters(), lr=params['lr'])
+optimizer = optim.Adam(model.parameters(), lr=params['lr'], weight_decay=1e-4)
 criterion = nn.MSELoss(reduction="mean")
 
 trainer = Trainer(dataset, model, optimizer, criterion, params['output_dir'], params['batch_size'])
