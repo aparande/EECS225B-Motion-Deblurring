@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+import pytorch_ssim # for SSIM loss
+
 import torchvision
 from torchvision import models, transforms
 
@@ -75,17 +77,18 @@ class Trainer():
 
                 preds = self.model(lr, hr)
 
-                loss = self.criterion(preds, target)
+                # NOTE: MAKING THIS 1 - self.criterion FOR SSIM SPECIFICALLY!!!!
+                loss = 1 - self.criterion(preds, target)
                 loss.backward()
 
                 self.optimizer.step()
                 if (batch_idx + 1) % 10 == 0:
                     model_psnr = psnr(target, preds).item()
-                    print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\t PSNR: {:.6f}\n'.format(epoch, 
+                    print('Train Epoch: {} [{}/{} ({:.0f}%)]\SSIM: {:.6f}\t PSNR: {:.6f}\n'.format(epoch, 
                                                                                 batch_idx * len(lr), 
                                                                                 len(self.train_loader.dataset), 
                                                                                 100. * batch_idx / len(self.train_loader),
-                                                                                loss.item(),
+                                                                                1 - loss.item(),
                                                                                 model_psnr))
                     train_psnr.append(model_psnr)
                 train_losses.append(loss.item())
@@ -141,7 +144,8 @@ with open('{}/params.pkl'.format(params['output_dir']), 'wb') as f:
 dataset = MotionBlurDataset(params['dataset'])
 model = HDRPointwiseNN(params=params)
 optimizer = optim.Adam(model.parameters(), lr=params['lr'], weight_decay=1e-4)
-criterion = nn.MSELoss(reduction="mean")
+criterion = pytorch_ssim.SSIM()
+#criterion = nn.L1Loss(reduction="mean")
 
 trainer = Trainer(dataset, model, optimizer, criterion, params['output_dir'], params['batch_size'])
 trainer.train_model(num_epochs=params['epochs'], resume=False)
