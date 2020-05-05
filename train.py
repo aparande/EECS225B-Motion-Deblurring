@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 from MotionBlurDataset import MotionBlurDataset
+from GoProDataset import GoProDataset
 from model import HDRPointwiseNN
 from metrics import psnr
 
@@ -124,13 +125,16 @@ parser.add_argument('--channel-multiplier', default=1, type=int, help='Multiplie
 parser.add_argument('--spatial-bin', type=int, default=16)
 parser.add_argument('--batch-norm', action='store_true', help='If set use batch norm')
 parser.add_argument('--net-input-size', type=int, default=256, help='Size of low-res input')
-parser.add_argument('--net-output-size', type=int, default=320, help='Size of full-res input/output')
+parser.add_argument('--net-output-size', type=int, default=512, help='Size of full-res input/output')
+parser.add_argument('--guide-complexity', type=int, default=16, help='Features used to create guide map')
 
 parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate')
+parser.add_argument('--weight-decay', type=float, default=0, help="L2 Regularization")
 parser.add_argument('--batch-size', type=int, default=4)
 parser.add_argument('--epochs', type=int, default=10)
 parser.add_argument('--dataset', type=str, default='', help='Dataset path with input/output dirs', required=True)
 parser.add_argument('--output-dir', type=str, default='models', help="Trained model directory")
+parser.add_argument('--resume', action='store_true', help='If set, resume training')
 
 params = vars(parser.parse_args())
 
@@ -143,9 +147,11 @@ with open('{}/params.pkl'.format(params['output_dir']), 'wb') as f:
 
 dataset = MotionBlurDataset(params['dataset'])
 model = HDRPointwiseNN(params=params)
-optimizer = optim.Adam(model.parameters(), lr=params['lr'], weight_decay=1e-4)
+optimizer = optim.Adam(model.parameters(), lr=params['lr'], weight_decay=params['weight_decay'])
 criterion = pytorch_ssim.SSIM()
-#criterion = nn.L1Loss(reduction="mean")
+if params['resume']:
+    state_dict = torch.load("{}/model.pth".format(params['output_dir']))
+    model.load_state_dict(state_dict)
 
 trainer = Trainer(dataset, model, optimizer, criterion, params['output_dir'], params['batch_size'])
-trainer.train_model(num_epochs=params['epochs'], resume=False)
+trainer.train_model(num_epochs=params['epochs'], resume=params['resume'])

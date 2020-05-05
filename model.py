@@ -75,9 +75,9 @@ class GuidanceMap(nn.Module):
         self.params = params
         # TODO: How does this guidemap work? Why can we just use a conv block
         # The original paper does not specify 16, and it uses sigmoid instead of Tanh
-        self.conv1 = ConvBlock(3, 16, kernel_size=1, padding=0, batch_norm=params['batch_norm'])
-        #self.conv2 = ConvBlock(16, 1, kernel_size=1, padding=0, activation=nn.Tanh)
-        self.conv2 = ConvBlock(16, 1, kernel_size=1, padding=0, activation=nn.Sigmoid)
+        self.conv1 = ConvBlock(3, params['guide_complexity'], kernel_size=1, padding=0, batch_norm=params['batch_norm'])
+        self.conv2 = ConvBlock(params['guide_complexity'], 1, kernel_size=1, padding=0, activation=nn.Tanh)
+        #self.conv2 = ConvBlock(16, 1, kernel_size=1, padding=0, activation=nn.Sigmoid)
 
     def forward(self, x):
         return self.conv2(self.conv1(x))
@@ -109,7 +109,7 @@ class ComputeCoeffs(nn.Module):
         self.local_features.append(ConvBlock(8*self.cm*self.lb, 8*self.cm*self.lb, kernel_size=3, use_bias=False))
 
         # Global Features
-        global_num = 2
+        global_num = int(np.log2(self.sb/4))
         global_channel_num = low_level_channel_num
         self.global_features_conv = nn.ModuleList()
         for i in range(global_num):
@@ -153,7 +153,7 @@ class ComputeCoeffs(nn.Module):
 
         x = self.conv_out(fusion)
         s = x.shape
-        x = x.view(bs, 3 * 4,self.lb,self.sb,self.sb) # B x Coefs x Luma x Spatial x Spatial
+        x = x.view(bs, 3 * 4, self.lb, self.sb, self.sb) # B x Coefs x Luma x Spatial x Spatial
         return x
 
 class HDRPointwiseNN(nn.Module):
