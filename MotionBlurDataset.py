@@ -3,9 +3,6 @@ from torch.utils.data import Dataset
 import os
 from transforms import *
 
-HEAVY_BLUR_NAME = "_heavy_blur.jpg"
-MILD_BLUR_NAME = "_mild_blur.jpg"
-
 class MotionBlurDataset(Dataset):
     def __init__(self, path, transforms_low = LOW_RES_TRANSFORMS, 
                             transforms_high = HIGH_RES_TRANSFORMS,
