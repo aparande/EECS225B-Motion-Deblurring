@@ -107,6 +107,8 @@ class ComputeCoeffs(nn.Module):
         self.local_features = nn.ModuleList()
         self.local_features.append(ConvBlock(low_level_channel_num, 8 * self.cm * self.lb, kernel_size=3, batch_norm=self.bn))
         self.local_features.append(ConvBlock(8*self.cm*self.lb, 8*self.cm*self.lb, kernel_size=3, use_bias=False))
+        # self.local_features.append(ConvBlock(8*self.cm*self.lb, 8*self.cm*self.lb, kernel_size=3, use_bias=False))
+        # self.local_features.append(ConvBlock(8*self.cm*self.lb, 8*self.cm*self.lb, kernel_size=3, use_bias=False))
 
         # Global Features
         global_num = int(np.log2(self.sb/4))
@@ -125,6 +127,7 @@ class ComputeCoeffs(nn.Module):
         self.global_features_fc.append(FC(32 * self.cm * self.lb, 16 * self.cm * self.lb, batch_norm=self.bn))
         self.global_features_fc.append(FC(16 * self.cm * self.lb, 8 * self.cm * self.lb, activation=None, batch_norm=self.bn))
         
+        #self.conv_out = ConvBlock(8 * self.cm * self.lb, self.lb * 7 * 8, 1, padding=0, activation=None)
         self.conv_out = ConvBlock(8 * self.cm * self.lb, self.lb * 3 * 4, 1, padding=0, activation=None)
    
     def forward(self, lowres_input):
@@ -153,7 +156,8 @@ class ComputeCoeffs(nn.Module):
 
         x = self.conv_out(fusion)
         s = x.shape
-        x = x.view(bs, 3 * 4, self.lb, self.sb, self.sb) # B x Coefs x Luma x Spatial x Spatial
+       # x = x.view(bs, 7 * 8, self.lb, self.sb, self.sb) # B x Coefs x Luma x Spatial x Spatial
+        x = x.view(bs, 3 * 4, self.lb, self.sb, self.sb)
         return x
 
 class HDRPointwiseNN(nn.Module):

@@ -15,6 +15,7 @@ from MotionBlurDataset import MotionBlurDataset
 from GoProDataset import GoProDataset
 from model import HDRPointwiseNN
 from metrics import psnr
+from PerceptualLoss import PerceptualLoss
 
 import numpy as np
 import argparse
@@ -79,17 +80,18 @@ class Trainer():
                 preds = self.model(lr, hr)
 
                 # NOTE: MAKING THIS 1 - self.criterion FOR SSIM SPECIFICALLY!!!!
-                loss = 1 - self.criterion(preds, target)
+                #loss = 1 - self.criterion(preds, target)
+                loss = self.criterion(preds, target)
                 loss.backward()
 
                 self.optimizer.step()
                 if (batch_idx + 1) % 10 == 0:
                     model_psnr = psnr(target, preds).item()
-                    print('Train Epoch: {} [{}/{} ({:.0f}%)]\SSIM: {:.6f}\t PSNR: {:.6f}\n'.format(epoch, 
+                    print('Train Epoch: {} [{}/{} ({:.0f}%)]Perceptual Loss: {:.6f}\t PSNR: {:.6f}\n'.format(epoch, 
                                                                                 batch_idx * len(lr), 
                                                                                 len(self.train_loader.dataset), 
                                                                                 100. * batch_idx / len(self.train_loader),
-                                                                                1 - loss.item(),
+                                                                                loss.item(),
                                                                                 model_psnr))
                     train_psnr.append(model_psnr)
                 train_losses.append(loss.item())
@@ -145,10 +147,12 @@ os.makedirs(params['output_dir'], exist_ok=True)
 with open('{}/params.pkl'.format(params['output_dir']), 'wb') as f:
     pickle.dump(params, f)
 
-dataset = GoProDataset(params['dataset'])#MotionBlurDataset(params['dataset'])
+dataset = MotionBlurDataset(params['dataset'])
+#dataset = GoProDataset(params['dataset'])
 model = HDRPointwiseNN(params=params)
 optimizer = optim.Adam(model.parameters(), lr=params['lr'], weight_decay=params['weight_decay'])
-criterion = pytorch_ssim.SSIM()
+#criterion = pytorch_ssim.SSIM()
+criterion = PerceptualLoss()
 if params['resume']:
     state_dict = torch.load("{}/model.pth".format(params['output_dir']))
     model.load_state_dict(state_dict)
