@@ -145,7 +145,7 @@ os.makedirs(params['output_dir'], exist_ok=True)
 with open('{}/params.pkl'.format(params['output_dir']), 'wb') as f:
     pickle.dump(params, f)
 
-dataset = MotionBlurDataset(params['dataset'])
+dataset = GoProDataset(params['dataset'])#MotionBlurDataset(params['dataset'])
 model = HDRPointwiseNN(params=params)
 optimizer = optim.Adam(model.parameters(), lr=params['lr'], weight_decay=params['weight_decay'])
 criterion = pytorch_ssim.SSIM()
