@@ -129,6 +129,8 @@ parser.add_argument('--batch-norm', action='store_true', help='If set use batch 
 parser.add_argument('--net-input-size', type=int, default=256, help='Size of low-res input')
 parser.add_argument('--net-output-size', type=int, default=512, help='Size of full-res input/output')
 parser.add_argument('--guide-complexity', type=int, default=16, help='Features used to create guide map')
+parser.add_argument('--use-residual', action='store_true', help='Use residual blocks')
+parser.add_argument('--coeff-num', type=int, default=12, help='How many bilateral coefficients to use')
 
 parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate')
 parser.add_argument('--weight-decay', type=float, default=0, help="L2 Regularization")

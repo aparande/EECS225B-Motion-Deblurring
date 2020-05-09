@@ -4,6 +4,24 @@ import torch.nn.functional as F
 import numpy as np
 from collections import OrderedDict
 
+class ResBlock(nn.Module):
+    def __init__(self, inc, filter_num, stride=1, batch_norm=False):
+        super(ResBlock, self).__init__()
+        self.conv1 = ConvBlock(inc, filter_num, stride=stride, batch_norm=batch_norm)
+        self.conv2 = ConvBlock(filter_num, filter_num, activation=None, batch_norm=batch_norm)
+
+        self.conv3 = None
+        if stride != 1:
+            self.conv3 = ConvBlock(inc, filter_num, kernel_size=1, padding=0, stride=stride)
+    
+    def forward(self, x):
+        output = self.conv1(x)
+        output = self.conv2(output)
+
+        if self.conv3 is not None:
+            x = self.conv3(x)
+
+        return x + output
 
 class ConvBlock(nn.Module):
     def __init__(self, inc , outc, kernel_size=3, padding=1, stride=1, use_bias=True, activation=nn.ReLU, batch_norm=False):
@@ -73,11 +91,8 @@ class GuidanceMap(nn.Module):
     def __init__(self, params=None):
         super(GuidanceMap, self).__init__()
         self.params = params
-        # TODO: How does this guidemap work? Why can we just use a conv block
-        # The original paper does not specify 16, and it uses sigmoid instead of Tanh
         self.conv1 = ConvBlock(3, params['guide_complexity'], kernel_size=1, padding=0, batch_norm=params['batch_norm'])
         self.conv2 = ConvBlock(params['guide_complexity'], 1, kernel_size=1, padding=0, activation=nn.Tanh)
-        #self.conv2 = ConvBlock(16, 1, kernel_size=1, padding=0, activation=nn.Sigmoid)
 
     def forward(self, x):
         return self.conv2(self.conv1(x))
@@ -91,31 +106,37 @@ class ComputeCoeffs(nn.Module):
         self.sb = params['spatial_bin']
         self.bn = params['batch_norm']
         self.nsize = params['net_input_size']
+        self.coeff_num = params['coeff_num']
 
         # Build the low-level features
         splat_num = int(np.log2(self.nsize / self.sb))
         self.lowlevel_features = nn.ModuleList()
-
         low_level_channel_num = 3
         for i in range(splat_num):
             use_bn = self.bn if i > 0 else False
-            layer = ConvBlock(low_level_channel_num, self.cm * (2 ** i) * self.lb, kernel_size=3, stride=2, batch_norm=use_bn)
+            if params['use_residual']:
+                layer = ResBlock(low_level_channel_num, self.cm * (2 ** i) * self.lb, stride=2, batch_norm=use_bn)
+            else:
+                layer = ConvBlock(low_level_channel_num, self.cm * (2 ** i) * self.lb, kernel_size=3, stride=2, batch_norm=use_bn)
             self.lowlevel_features.append(layer)
             low_level_channel_num = self.cm * (2 ** i) * self.lb
 
         # local features
         self.local_features = nn.ModuleList()
         self.local_features.append(ConvBlock(low_level_channel_num, 8 * self.cm * self.lb, kernel_size=3, batch_norm=self.bn))
-        self.local_features.append(ConvBlock(8*self.cm*self.lb, 8*self.cm*self.lb, kernel_size=3, use_bias=False))
-        # self.local_features.append(ConvBlock(8*self.cm*self.lb, 8*self.cm*self.lb, kernel_size=3, use_bias=False))
-        # self.local_features.append(ConvBlock(8*self.cm*self.lb, 8*self.cm*self.lb, kernel_size=3, use_bias=False))
+        self.local_features.append(ConvBlock(8*self.cm*self.lb, 8*self.cm*self.lb, kernel_size=3, use_bias=False, batch_norm=self.bn))
+        self.local_features.append(ConvBlock(8*self.cm*self.lb, 8*self.cm*self.lb, kernel_size=3, use_bias=False, batch_norm=self.bn))
+        self.local_features.append(ConvBlock(8*self.cm*self.lb, 8*self.cm*self.lb, kernel_size=3, use_bias=False, batch_norm=self.bn))
 
         # Global Features
         global_num = int(np.log2(self.sb/4))
         global_channel_num = low_level_channel_num
         self.global_features_conv = nn.ModuleList()
         for i in range(global_num):
-            layer = ConvBlock(global_channel_num, self.cm * 8 * self.lb, kernel_size=3, stride=2, batch_norm=self.bn)
+            if params['use_residual']:
+                layer = ResBlock(global_channel_num, self.cm * 8 * self.lb, stride=2, batch_norm=self.bn)
+            else:
+                layer = ConvBlock(global_channel_num, self.cm * 8 * self.lb, kernel_size=3, stride=2, batch_norm=self.bn)
             self.global_features_conv.append(layer)
             global_channel_num = self.cm * 8 * self.lb
 
@@ -127,8 +148,8 @@ class ComputeCoeffs(nn.Module):
         self.global_features_fc.append(FC(32 * self.cm * self.lb, 16 * self.cm * self.lb, batch_norm=self.bn))
         self.global_features_fc.append(FC(16 * self.cm * self.lb, 8 * self.cm * self.lb, activation=None, batch_norm=self.bn))
         
-        #self.conv_out = ConvBlock(8 * self.cm * self.lb, self.lb * 7 * 8, 1, padding=0, activation=None)
-        self.conv_out = ConvBlock(8 * self.cm * self.lb, self.lb * 3 * 4, 1, padding=0, activation=None)
+        self.conv_out = ConvBlock(8 * self.cm * self.lb, self.lb * self.coeff_num, 1, padding=0, activation=None)
+        #self.conv_out = ConvBlock(8 * self.cm * self.lb, self.lb * 3 * 4, 1, padding=0, activation=None)
    
     def forward(self, lowres_input):
         bs = lowres_input.shape[0]
@@ -156,8 +177,7 @@ class ComputeCoeffs(nn.Module):
 
         x = self.conv_out(fusion)
         s = x.shape
-       # x = x.view(bs, 7 * 8, self.lb, self.sb, self.sb) # B x Coefs x Luma x Spatial x Spatial
-        x = x.view(bs, 3 * 4, self.lb, self.sb, self.sb)
+        x = x.view(bs, self.coeff_num, self.lb, self.sb, self.sb) # B x Coefs x Luma x Spatial x Spatial
         return x
 
 class HDRPointwiseNN(nn.Module):

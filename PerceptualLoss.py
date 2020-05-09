@@ -10,8 +10,7 @@ VGG_TRANSFORM = transforms.Compose([
 class PerceptualLoss(torch.nn.Module):
     def __init__(self, device=None):
         super(PerceptualLoss, self).__init__()
-        # Truncate network to RELU 3_3
-        self.vgg = model = torch.hub.load('pytorch/vision:v0.5.0', 'vgg16', pretrained="True").features[:3].eval()
+        self.vgg = torch.hub.load('pytorch/vision:v0.5.0', 'vgg16', pretrained="True").features[:3].eval()
         self.vgg.requires_grad = False
         self.mean = torch.tensor([0.485, 0.456, 0.406]).view(1,3,1,1)
         self.std = torch.tensor([0.229, 0.224, 0.225]).view(1,3,1,1)
