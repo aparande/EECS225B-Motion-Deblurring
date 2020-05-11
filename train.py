@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-import pytorch_ssim # for SSIM loss
-
 import torchvision
 from torchvision import models, transforms
 
@@ -12,9 +10,8 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 from MotionBlurDataset import MotionBlurDataset
-from GoProDataset import GoProDataset
 from model import HDRPointwiseNN
-from metrics import psnr
+from metrics import psnr, SSIM
 from PerceptualLoss import PerceptualLoss
 
 import numpy as np
@@ -150,10 +147,9 @@ with open('{}/params.pkl'.format(params['output_dir']), 'wb') as f:
     pickle.dump(params, f)
 
 dataset = MotionBlurDataset(params['dataset'])
-#dataset = GoProDataset(params['dataset'])
 model = HDRPointwiseNN(params=params)
 optimizer = optim.Adam(model.parameters(), lr=params['lr'], weight_decay=params['weight_decay'])
-#criterion = pytorch_ssim.SSIM()
+#criterion = SSIM()
 criterion = PerceptualLoss()
 if params['resume']:
     state_dict = torch.load("{}/model.pth".format(params['output_dir']))

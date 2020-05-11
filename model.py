@@ -1,3 +1,5 @@
+# MODIFIED FROM https://github.com/creotiv/hdrnet-pytorch
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -149,7 +151,6 @@ class ComputeCoeffs(nn.Module):
         self.global_features_fc.append(FC(16 * self.cm * self.lb, 8 * self.cm * self.lb, activation=None, batch_norm=self.bn))
         
         self.conv_out = ConvBlock(8 * self.cm * self.lb, self.lb * self.coeff_num, 1, padding=0, activation=None)
-        #self.conv_out = ConvBlock(8 * self.cm * self.lb, self.lb * 3 * 4, 1, padding=0, activation=None)
    
     def forward(self, lowres_input):
         bs = lowres_input.shape[0]
@@ -195,9 +196,3 @@ class HDRPointwiseNN(nn.Module):
         slice_coeffs = self.slice(coeffs, guide)
         out = self.apply_coeffs(slice_coeffs, fullres)
         return out
-
-
-#########################################################################################################
-
-
-    
