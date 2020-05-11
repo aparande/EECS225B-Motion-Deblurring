@@ -1,5 +1,5 @@
 # Motion Deblurring with HDRNet
-Final project for EECS225B by Anmol Parande and Dominic Carran
+Final project for EECS225B by Anmol Parande and Dominic Carrano
 
 See results [here](https://docs.google.com/document/d/e/2PACX-1vQBEWDPHiPtSP3cQzW9uWxYx7GTjvaz3hPOCocLVwsjlVgmcf4gDRzNpAjT_gQrq_xuHD02fdGlbSJs/pub)
 ## Abstract
