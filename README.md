@@ -1,5 +1,6 @@
 # Motion Deblurring with HDRNet
-Final project for EECS225B by Anmol Parande and Dominic Carrano
+Final project for EECS225B by Anmol Parande and Dominic Carran
+
 See results [here](https://docs.google.com/document/d/e/2PACX-1vQBEWDPHiPtSP3cQzW9uWxYx7GTjvaz3hPOCocLVwsjlVgmcf4gDRzNpAjT_gQrq_xuHD02fdGlbSJs/pub)
 ## Abstract
 [HDRNet](https://groups.csail.mit.edu/graphics/hdrnet/data/hdrnet.pdf) is a neural network which uses bilateral grid coefficients to perform real-time corrections, such as contrast enhancement and brightness adjustment, to greatly improve the quality of images taken on cell phones. However, when the system was originally developed, the issue of motion blur—one of the most common problems in cell-phone photography—went unaddressed. Given HDRNet’s success on other tasks, we investigated several ways to extend it to motion deblurring, which would enable a unified framework for cell-phone image enhancement. However, even with extensive modifications such as the use of residual blocks, HDRNet’s bilateral grid model fails to recover the details lost when non-uniform motion blurring occurs.
